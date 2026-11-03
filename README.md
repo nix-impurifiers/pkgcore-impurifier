@@ -64,3 +64,28 @@ OpenRC userspace. The fixture supplies Nix and Python beforehand. The outer
 kernel is NixOS; these checks do not establish a full Gentoo boot or installer.
 Upstream Python dependencies and native pkgcore tooling are pinned separately
 in `nix/tools.nix`; public emitters need only the standard library and Nix tools.
+
+## Native payloads and bundled clients
+
+`makeNativeEbuild { name; version; payload; license; dependencies?; ... }` emits
+a native overlay from a producer-prepared filesystem tree, without activation
+or an implicit Nix dependency. The producer supplies a working target layout;
+this does not relocate binaries. The VM uses actual pmerge with a separate native
+ROOT, executes the installed static payload in that root without `/nix`, then
+upgrades and removes it. The native target needs its ordinary package database
+and world-file foundation.
+
+`makeRuntimeOverlay` optionally accepts `bundledNixStore` and
+`bundledNixNotices`. Supply a static ELF client and its upstream notices. Bundling
+omits the default native Nix requirement; Python remains required. Compatible
+external clients take precedence, explicit `IMPURIFIER_NIX_STORE` disables
+fallback, and failed mutations are never retried through another client. A
+separate bundled-client VM repeats the original pkgcore lifecycle suite with an
+incompatible external candidate. Nix provisioning remains deferred.
+
+The pinned pkgcore SDK corrects separate-ROOT unmerge to apply its root offset
+before the live-files intersection. The original SDK checked host-root files
+first, dropped them from the removal set, then removed only inventory. The VM
+requires the installed files to disappear; this fixture fix changes no emitted
+package format. Other native client versions need their own separate-root
+unmerge compatibility check.

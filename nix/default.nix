@@ -234,13 +234,15 @@ let
     };
   makeRuntimeOverlay =
     {
-      nixDependency ? "sys-apps/nix",
+      bundledNixStore ? null,
+      bundledNixNotices ? [ ],
+      nixDependency ? (if bundledNixStore == null then "sys-apps/nix" else null),
       pythonDependency ? "dev-lang/python",
     }:
     let
       payload = pkgs.runCommand "pkgcore-impurifier-runtime-payload" { } ''
         mkdir -p $out
-        cp -r ${core.makeRuntimeTree { }}/. $out/
+        cp -r ${core.makeRuntimeTree { inherit bundledNixStore bundledNixNotices; }}/. $out/
         chmod -R u+w $out
         install -Dm755 ${activate} $out/usr/sbin/pkgcore-impurifier-activate
         install -Dm755 ${../src/adapter.py} $out/usr/sbin/pkgcore-impurifier
@@ -253,10 +255,7 @@ let
       inherit payload;
       license = "MIT";
       activate = true;
-      dependencies = [
-        nixDependency
-        pythonDependency
-      ];
+      dependencies = lib.optional (nixDependency != null) nixDependency ++ [ pythonDependency ];
     };
   makeOverlay =
     {
@@ -328,6 +327,7 @@ in
       builtins.readFile ../src/adapter.py
     )
   );
+  makeNativeEbuild = args: buildEbuild (args // { activate = false; });
   runtimeOverlay = makeRuntimeOverlay { };
   makeNetEbuild = args: makeEbuild (args // { offline = false; });
   makeOfflineEbuild = args: makeEbuild (args // { offline = true; });

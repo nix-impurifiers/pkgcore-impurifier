@@ -41,7 +41,20 @@ let
       py.lxml
       landlock
     ];
-    postPatch = "patchShebangs data";
+    postPatch = ''
+      patchShebangs data
+      # Apply ROOT before looking up live files, as install/replace already do.
+      # Offsetting old_cset afterwards silently leaves all target-root files.
+      python3 - <<'PYTHON'
+      from pathlib import Path
+      path = Path('src/pkgcore/merge/engine.py')
+      source = path.read_text()
+      old = 'o.cset_sources["old_cset"] = post_curry(\n                o.generate_offset_cset, o.cset_sources["old_cset"]'
+      new = old.replace('old_cset', 'raw_old_cset')
+      assert source.count(old) == 1
+      path.write_text(source.replace(old, new))
+      PYTHON
+    '';
     postInstall = ''
       cat > $out/${pkgs.python3.sitePackages}/pkgcore/_const.py <<PYTHON
       INSTALL_PREFIX = "$out"
